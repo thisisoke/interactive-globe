@@ -1,0 +1,42 @@
+{
+  "name": "interactive-globe-shaders",
+  "version": "1.0.0",
+  "description": "Custom GLSL shaders for interactive 3D globe visualization",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "*.glsl",
+    "*.js",
+    "*.d.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "validate": "echo 'Validating GLSL shader syntax...'",
+    "test": "echo 'Running shader tests...'"
+  },
+  "dependencies": {
+    "three": "^0.150.0"
+  },
+  "devDependencies": {
+    "vite": "^4.0.0",
+    "vite-plugin-glsl": "^1.1.2",
+    "@types/three": "^0.150.0"
+  },
+  "peerDependencies": {
+    "three": ">=0.150.0"
+  },
+  "keywords": [
+    "threejs",
+    "webgl",
+    "glsl",
+    "shaders",
+    "3d",
+    "globe",
+    "visualization",
+    "fresnel",
+    "particles"
+  ],
+  "author": "LB Kitchen Development Team",
+  "license": "MIT"
+}

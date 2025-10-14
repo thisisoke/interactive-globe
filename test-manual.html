@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Globe - Manual Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 20px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            opacity: 0.8;
+            font-size: 0.9em;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        #globe-container {
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            min-width: 200px;
+        }
+
+        .controls h3 {
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            background: #4B9FBF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #3d8aa8;
+        }
+
+        .status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-size: 0.9em;
+        }
+
+        .status-item {
+            margin: 5px 0;
+        }
+
+        .success {
+            color: #4ade80;
+        }
+
+        .error {
+            color: #f87171;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🌍 Interactive Globe Test</h1>
+        <p class="subtitle">Manual verification of all features</p>
+    </header>
+
+    <main>
+        <div id="globe-container"></div>
+    </main>
+
+    <div class="controls">
+        <h3>Test Controls</h3>
+
+        <div class="control-group">
+            <button id="btn-highlight">Highlight Cities</button>
+            <button id="btn-rotate">Toggle Rotation</button>
+            <button id="btn-blue">Blue Theme</button>
+            <button id="btn-red">Red Theme</button>
+            <button id="btn-reset">Reset</button>
+        </div>
+    </div>
+
+    <div class="status">
+        <div class="status-item" id="status-init">⏳ Initializing...</div>
+        <div class="status-item" id="status-scene">⏳ Scene: Pending</div>
+        <div class="status-item" id="status-dots">⏳ Dots: Pending</div>
+        <div class="status-item" id="status-controls">⏳ Controls: Pending</div>
+        <div class="status-item" id="status-fps">FPS: --</div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+        import { Globe } from './src/Globe.js';
+
+        let globe;
+        let frameCount = 0;
+        let lastFpsUpdate = Date.now();
+
+        function updateStatus(id, message, success = true) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.textContent = message;
+                el.className = 'status-item ' + (success ? 'success' : 'error');
+            }
+        }
+
+        async function init() {
+            try {
+                updateStatus('status-init', '⏳ Creating globe...');
+
+                // Create globe
+                globe = new Globe({
+                    container: document.getElementById('globe-container'),
+                    dotColor: '#4B9FBF',
+                    activeDotColor: '#FF6B35',
+                    autoRotate: true,
+                    rotationSpeed: 1.0,
+                    dotCount: 15000 // Reduced for testing
+                });
+
+                updateStatus('status-scene', '✓ Scene created', true);
+
+                // Initialize (without texture for quick test)
+                updateStatus('status-init', '⏳ Initializing globe...');
+                await globe.init();
+
+                updateStatus('status-init', '✓ Globe initialized!', true);
+                updateStatus('status-dots', '✓ Dots rendered (15,000)', true);
+                updateStatus('status-controls', '✓ Controls active', true);
+
+                // Set up FPS monitoring
+                setInterval(() => {
+                    const now = Date.now();
+                    const elapsed = now - lastFpsUpdate;
+                    const fps = Math.round((frameCount * 1000) / elapsed);
+                    updateStatus('status-fps', `FPS: ${fps}`, fps >= 30);
+                    frameCount = 0;
+                    lastFpsUpdate = now;
+                }, 1000);
+
+                // Hook into animation loop for FPS counting
+                const originalAnimate = globe.animate.bind(globe);
+                globe.animate = function() {
+                    frameCount++;
+                    originalAnimate();
+                };
+
+                // Set up controls
+                setupControls();
+
+            } catch (error) {
+                console.error('Initialization error:', error);
+                updateStatus('status-init', `✗ Error: ${error.message}`, false);
+            }
+        }
+
+        function setupControls() {
+            // Highlight cities
+            document.getElementById('btn-highlight').addEventListener('click', () => {
+                globe.setActiveDots([
+                    { lat: 40.7128, lon: -74.0060 },  // New York
+                    { lat: 51.5074, lon: -0.1278 },   // London
+                    { lat: 35.6762, lon: 139.6503 },  // Tokyo
+                    { lat: -33.8688, lon: 151.2093 }, // Sydney
+                ]);
+                updateStatus('status-controls', '✓ Cities highlighted', true);
+            });
+
+            // Toggle rotation
+            let rotating = true;
+            document.getElementById('btn-rotate').addEventListener('click', () => {
+                if (rotating) {
+                    globe.stopRotation();
+                    rotating = false;
+                    updateStatus('status-controls', '✓ Rotation stopped', true);
+                } else {
+                    globe.startRotation();
+                    rotating = true;
+                    updateStatus('status-controls', '✓ Rotation started', true);
+                }
+            });
+
+            // Blue theme
+            document.getElementById('btn-blue').addEventListener('click', () => {
+                globe.configure({
+                    dotColor: '#00aaff',
+                    activeDotColor: '#00ffaa'
+                });
+                updateStatus('status-controls', '✓ Blue theme applied', true);
+            });
+
+            // Red theme
+            document.getElementById('btn-red').addEventListener('click', () => {
+                globe.configure({
+                    dotColor: '#ff4444',
+                    activeDotColor: '#ffaa00'
+                });
+                updateStatus('status-controls', '✓ Red theme applied', true);
+            });
+
+            // Reset
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                globe.configure({
+                    dotColor: '#4B9FBF',
+                    activeDotColor: '#FF6B35'
+                });
+                globe.setActiveDots([]);
+                globe.startRotation();
+                updateStatus('status-controls', '✓ Reset complete', true);
+            });
+        }
+
+        // Start the app
+        init();
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (globe) globe.dispose();
+        });
+    </script>
+</body>
+</html>

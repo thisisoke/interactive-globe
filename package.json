@@ -1,0 +1,49 @@
+{
+  "name": "interactive-globe",
+  "version": "1.0.0",
+  "description": "an interactive globe",
+  "main": "index.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:chrome": "playwright test --project=chromium-desktop",
+    "test:firefox": "playwright test --project=firefox-desktop",
+    "test:safari": "playwright test --project=webkit-desktop",
+    "test:edge": "playwright test --project=edge-desktop",
+    "test:mobile": "playwright test --project=mobile-iphone --project=mobile-pixel",
+    "test:tablet": "playwright test --project=tablet-ipad --project=tablet-landscape",
+    "test:functional": "playwright test tests/globe.spec.js",
+    "test:visual": "playwright test tests/visual.spec.js",
+    "test:performance": "playwright test tests/performance.spec.js",
+    "test:report": "playwright show-report",
+    "test:codegen": "playwright codegen http://localhost:5173",
+    "test:update-snapshots": "playwright test --update-snapshots"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thisisoke/interactive-globe.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/thisisoke/interactive-globe/issues"
+  },
+  "homepage": "https://github.com/thisisoke/interactive-globe#readme",
+  "dependencies": {
+    "three": "^0.150.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "vite": "^6.3.7"
+  }
+}

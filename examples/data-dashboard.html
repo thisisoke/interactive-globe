@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Globe - Data Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #0a0e27;
+      color: #ffffff;
+      overflow: hidden;
+    }
+
+    .dashboard-container {
+      display: grid;
+      grid-template-columns: 350px 1fr 350px;
+      grid-template-rows: 80px 1fr;
+      height: 100vh;
+      gap: 0;
+    }
+
+    /* Header */
+    .header {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, #1a1f3a 0%, #0d1025 100%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-stats {
+      display: flex;
+      gap: 30px;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #667eea;
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0.6;
+      margin-top: 2px;
+    }
+
+    /* Left Sidebar - Location List */
+    .locations-panel {
+      background: #0d1025;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 20px;
+      opacity: 0.7;
+    }
+
+    .location-item {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 1px solid transparent;
+    }
+
+    .location-item:hover {
+      background: rgba(102, 126, 234, 0.1);
+      border-color: rgba(102, 126, 234, 0.3);
+      transform: translateX(5px);
+    }
+
+    .location-item.active {
+      background: rgba(102, 126, 234, 0.2);
+      border-color: #667eea;
+    }
+
+    .location-name {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .location-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .location-info {
+      font-size: 12px;
+      opacity: 0.7;
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+    }
+
+    .location-metric {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .metric-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      opacity: 0.5;
+    }
+
+    .metric-value {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    /* Globe Container */
+    #globe-container {
+      position: relative;
+      background: radial-gradient(ellipse at center, #1a1f3a 0%, #0a0e27 100%);
+    }
+
+    /* Right Sidebar - Stats & Analytics */
+    .stats-panel {
+      background: #0d1025;
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .stats-section {
+      margin-bottom: 30px;
+    }
+
+    .stats-section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 15px;
+      opacity: 0.7;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .stat-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .stat-card-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      opacity: 0.6;
+    }
+
+    .stat-card-value {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-card-change {
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .stat-card-change.positive {
+      color: #10b981;
+    }
+
+    .stat-card-change.negative {
+      color: #ef4444;
+    }
+
+    /* Distribution Chart */
+    .distribution-chart {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .chart-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .chart-label {
+      font-size: 12px;
+      width: 80px;
+      opacity: 0.8;
+    }
+
+    .chart-bar {
+      flex: 1;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .chart-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    .chart-value {
+      font-size: 12px;
+      font-weight: 600;
+      width: 40px;
+      text-align: right;
+    }
+
+    /* Activity Timeline */
+    .activity-timeline {
+      position: relative;
+      padding-left: 20px;
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .timeline-item:last-child {
+      border-bottom: none;
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -20px;
+      top: 5px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #667eea;
+    }
+
+    .timeline-time {
+      font-size: 11px;
+      opacity: 0.5;
+      margin-bottom: 3px;
+    }
+
+    .timeline-content {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* Performance Monitor */
+    .performance-monitor {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 10px 15px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 10;
+    }
+
+    .perf-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      margin: 3px 0;
+    }
+
+    .perf-label {
+      opacity: 0.6;
+    }
+
+    .perf-value {
+      font-weight: 600;
+      color: #10b981;
+    }
+
+    /* Loading Overlay */
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(10, 14, 39, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      border: 3px solid rgba(102, 126, 234, 0.3);
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      margin-top: 20px;
+      font-size: 16px;
+      font-weight: 600;
+      opacity: 0.8;
+    }
+
+    /* Scrollbar Styling */
+    .locations-panel::-webkit-scrollbar,
+    .stats-panel::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .locations-panel::-webkit-scrollbar-track,
+    .stats-panel::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .locations-panel::-webkit-scrollbar-thumb,
+    .stats-panel::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1400px) {
+      .dashboard-container {
+        grid-template-columns: 300px 1fr 300px;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .dashboard-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: 80px 1fr;
+      }
+
+      .locations-panel,
+      .stats-panel {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <!-- Header -->
+    <div class="header">
+      <h1>Global Network Dashboard</h1>
+      <div class="header-stats">
+        <div class="stat-item">
+          <span class="stat-value" id="totalLocations">25</span>
+          <span class="stat-label">Active Locations</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="totalConnections">1,247</span>
+          <span class="stat-label">Connections</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="uptime">99.9%</span>
+          <span class="stat-label">Uptime</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Left Sidebar - Locations -->
+    <div class="locations-panel">
+      <h2 class="panel-title">Active Locations</h2>
+      <div id="locationsList"></div>
+    </div>
+
+    <!-- Globe Container -->
+    <div id="globe-container">
+      <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Initializing Global Network...</div>
+      </div>
+
+      <div class="performance-monitor">
+        <div class="perf-row">
+          <span class="perf-label">FPS:</span>
+          <span class="perf-value" id="fpsCounter">60</span>
+        </div>
+        <div class="perf-row">
+          <span class="perf-label">Dots:</span>
+          <span class="perf-value" id="dotCount">25,000</span>
+        </div>
+        <div class="perf-row">
+          <span class="perf-label">Active:</span>
+          <span class="perf-value" id="activeCount">25</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Sidebar - Stats -->
+    <div class="stats-panel">
+      <div class="stats-section">
+        <h3>Key Metrics</h3>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span class="stat-card-title">Total Traffic</span>
+          </div>
+          <div class="stat-card-value">2.4 TB</div>
+          <div class="stat-card-change positive">+12.5% from last hour</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span class="stat-card-title">Avg Latency</span>
+          </div>
+          <div class="stat-card-value">45ms</div>
+          <div class="stat-card-change positive">-8ms from average</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span class="stat-card-title">Active Users</span>
+          </div>
+          <div class="stat-card-value">15.2K</div>
+          <div class="stat-card-change positive">+3.2% growth</div>
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <h3>Regional Distribution</h3>
+        <div class="distribution-chart">
+          <div class="chart-row">
+            <span class="chart-label">North America</span>
+            <div class="chart-bar">
+              <div class="chart-fill" style="width: 45%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);"></div>
+            </div>
+            <span class="chart-value">45%</span>
+          </div>
+          <div class="chart-row">
+            <span class="chart-label">Europe</span>
+            <div class="chart-bar">
+              <div class="chart-fill" style="width: 30%; background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);"></div>
+            </div>
+            <span class="chart-value">30%</span>
+          </div>
+          <div class="chart-row">
+            <span class="chart-label">Asia Pacific</span>
+            <div class="chart-bar">
+              <div class="chart-fill" style="width: 20%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);"></div>
+            </div>
+            <span class="chart-value">20%</span>
+          </div>
+          <div class="chart-row">
+            <span class="chart-label">Other</span>
+            <div class="chart-bar">
+              <div class="chart-fill" style="width: 5%; background: linear-gradient(90deg, #43e97b 0%, #38f9d7 100%);"></div>
+            </div>
+            <span class="chart-value">5%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <h3>Recent Activity</h3>
+        <div class="activity-timeline">
+          <div class="timeline-item">
+            <div class="timeline-time">2 minutes ago</div>
+            <div class="timeline-content">New location activated in Tokyo, Japan</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">15 minutes ago</div>
+            <div class="timeline-content">Connection spike detected in London</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">32 minutes ago</div>
+            <div class="timeline-content">Maintenance completed in New York</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">1 hour ago</div>
+            <div class="timeline-content">New user milestone: 15,000 active</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">2 hours ago</div>
+            <div class="timeline-content">System update deployed globally</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Globe } from '../src/Globe.js';
+
+    // Global network locations with realistic data
+    const networkLocations = [
+      { name: 'New York', lat: 40.7128, lon: -74.0060, users: 2840, traffic: '340 GB', latency: 12, status: '#10b981' },
+      { name: 'London', lat: 51.5074, lon: -0.1278, users: 1920, traffic: '280 GB', latency: 18, status: '#10b981' },
+      { name: 'Tokyo', lat: 35.6762, lon: 139.6503, users: 3150, traffic: '420 GB', latency: 25, status: '#10b981' },
+      { name: 'Singapore', lat: 1.3521, lon: 103.8198, users: 1680, traffic: '245 GB', latency: 32, status: '#10b981' },
+      { name: 'Sydney', lat: -33.8688, lon: 151.2093, users: 890, traffic: '128 GB', latency: 45, status: '#10b981' },
+      { name: 'Paris', lat: 48.8566, lon: 2.3522, users: 1450, traffic: '210 GB', latency: 15, status: '#10b981' },
+      { name: 'Frankfurt', lat: 50.1109, lon: 8.6821, users: 1230, traffic: '195 GB', latency: 14, status: '#10b981' },
+      { name: 'San Francisco', lat: 37.7749, lon: -122.4194, users: 2340, traffic: '315 GB', latency: 10, status: '#10b981' },
+      { name: 'Mumbai', lat: 19.0760, lon: 72.8777, users: 1670, traffic: '238 GB', latency: 38, status: '#f59e0b' },
+      { name: 'Dubai', lat: 25.2048, lon: 55.2708, users: 980, traffic: '142 GB', latency: 28, status: '#10b981' },
+      { name: 'São Paulo', lat: -23.5505, lon: -46.6333, users: 1340, traffic: '189 GB', latency: 42, status: '#10b981' },
+      { name: 'Toronto', lat: 43.6532, lon: -79.3832, users: 1120, traffic: '165 GB', latency: 16, status: '#10b981' },
+      { name: 'Seoul', lat: 37.5665, lon: 126.9780, users: 1890, traffic: '267 GB', latency: 29, status: '#10b981' },
+      { name: 'Hong Kong', lat: 22.3193, lon: 114.1694, users: 1560, traffic: '223 GB', latency: 34, status: '#10b981' },
+      { name: 'Amsterdam', lat: 52.3676, lon: 4.9041, users: 1180, traffic: '172 GB', latency: 13, status: '#10b981' },
+      { name: 'Los Angeles', lat: 34.0522, lon: -118.2437, users: 2100, traffic: '295 GB', latency: 11, status: '#10b981' },
+      { name: 'Chicago', lat: 41.8781, lon: -87.6298, users: 1450, traffic: '207 GB', latency: 14, status: '#10b981' },
+      { name: 'Stockholm', lat: 59.3293, lon: 18.0686, users: 780, traffic: '112 GB', latency: 19, status: '#10b981' },
+      { name: 'Moscow', lat: 55.7558, lon: 37.6173, users: 1320, traffic: '186 GB', latency: 36, status: '#10b981' },
+      { name: 'Mexico City', lat: 19.4326, lon: -99.1332, users: 1240, traffic: '178 GB', latency: 24, status: '#10b981' },
+      { name: 'Madrid', lat: 40.4168, lon: -3.7038, users: 960, traffic: '138 GB', latency: 17, status: '#10b981' },
+      { name: 'Istanbul', lat: 41.0082, lon: 28.9784, users: 1090, traffic: '156 GB', latency: 31, status: '#10b981' },
+      { name: 'Bangkok', lat: 13.7563, lon: 100.5018, users: 1380, traffic: '198 GB', latency: 40, status: '#10b981' },
+      { name: 'Cape Town', lat: -33.9249, lon: 18.4241, users: 650, traffic: '94 GB', latency: 52, status: '#f59e0b' },
+      { name: 'Buenos Aires', lat: -34.6037, lon: -58.3816, users: 890, traffic: '127 GB', latency: 48, status: '#10b981' }
+    ];
+
+    // Populate locations list
+    function populateLocationsList() {
+      const list = document.getElementById('locationsList');
+      networkLocations.forEach((location, index) => {
+        const item = document.createElement('div');
+        item.className = 'location-item';
+        item.innerHTML = `
+          <div class="location-name">
+            <span class="location-status" style="background: ${location.status};"></span>
+            ${location.name}
+          </div>
+          <div class="location-info">
+            <div class="location-metric">
+              <span class="metric-label">Users</span>
+              <span class="metric-value">${location.users.toLocaleString()}</span>
+            </div>
+            <div class="location-metric">
+              <span class="metric-label">Traffic</span>
+              <span class="metric-value">${location.traffic}</span>
+            </div>
+            <div class="location-metric">
+              <span class="metric-label">Latency</span>
+              <span class="metric-value">${location.latency}ms</span>
+            </div>
+          </div>
+        `;
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.location-item').forEach(el => el.classList.remove('active'));
+          item.classList.add('active');
+          globe.rotateToPoint(location.lat, location.lon, 1000);
+        });
+        list.appendChild(item);
+      });
+    }
+
+    // Initialize globe
+    const globe = new Globe({
+      container: document.getElementById('globe-container'),
+      dotColor: '#667eea',
+      dotSize: 1.2,
+      activeDotColor: '#f5576c',
+      autoRotate: true,
+      rotationSpeed: 0.3,
+      enableMouseDrag: true,
+      enableZoom: false,
+      dotCount: 25000,
+      scale: 1.0,
+      onDotClick: (dot) => {
+        if (dot) {
+          const location = networkLocations.find(
+            loc => Math.abs(loc.lat - dot.lat) < 0.1 && Math.abs(loc.lon - dot.lon) < 0.1
+          );
+          if (location) {
+            console.log('Clicked location:', location.name);
+          }
+        }
+      }
+    });
+
+    // Performance monitoring
+    let frameCount = 0;
+    let lastTime = performance.now();
+
+    function updatePerformance() {
+      frameCount++;
+      const currentTime = performance.now();
+      if (currentTime >= lastTime + 1000) {
+        document.getElementById('fpsCounter').textContent = frameCount;
+        frameCount = 0;
+        lastTime = currentTime;
+      }
+      requestAnimationFrame(updatePerformance);
+    }
+
+    // Simulate real-time data updates
+    function simulateRealTimeUpdates() {
+      setInterval(() => {
+        // Update random location metrics
+        const randomIndex = Math.floor(Math.random() * networkLocations.length);
+        const location = networkLocations[randomIndex];
+        location.users = Math.max(100, location.users + Math.floor(Math.random() * 100) - 50);
+        location.latency = Math.max(10, location.latency + Math.floor(Math.random() * 10) - 5);
+
+        // Update header stats
+        const totalUsers = networkLocations.reduce((sum, loc) => sum + loc.users, 0);
+        document.getElementById('totalConnections').textContent = totalUsers.toLocaleString();
+
+        // Randomly change location status
+        if (Math.random() < 0.05) {
+          location.status = location.status === '#10b981' ? '#f59e0b' : '#10b981';
+        }
+
+        populateLocationsList();
+      }, 3000);
+    }
+
+    // Initialize
+    async function init() {
+      try {
+        await globe.init();
+
+        // Set active locations
+        globe.setActiveDots(networkLocations.map(loc => ({
+          lat: loc.lat,
+          lon: loc.lon,
+          color: loc.status
+        })));
+
+        // Populate UI
+        populateLocationsList();
+
+        // Start performance monitoring
+        updatePerformance();
+
+        // Start real-time updates
+        simulateRealTimeUpdates();
+
+        // Hide loading overlay
+        document.getElementById('loadingOverlay').style.display = 'none';
+
+        // Update dot count
+        document.getElementById('dotCount').textContent = '25,000';
+        document.getElementById('activeCount').textContent = networkLocations.length.toString();
+
+      } catch (error) {
+        console.error('Failed to initialize globe:', error);
+        document.querySelector('.loading-text').textContent = 'Failed to load. Please refresh.';
+      }
+    }
+
+    init();
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      globe.dispose();
+    });
+  </script>
+</body>
+</html>

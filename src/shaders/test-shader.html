@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Globe Shader Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    #controls {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px;
+      border-radius: 8px;
+      color: white;
+      min-width: 280px;
+      backdrop-filter: blur(10px);
+    }
+
+    #controls h2 {
+      margin-bottom: 15px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .control-group {
+      margin-bottom: 15px;
+    }
+
+    .control-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      opacity: 0.8;
+    }
+
+    .control-group input[type="range"] {
+      width: 100%;
+      margin-bottom: 5px;
+    }
+
+    .control-group input[type="color"] {
+      width: 100%;
+      height: 32px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .value-display {
+      font-size: 11px;
+      opacity: 0.6;
+      text-align: right;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .preset-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .preset-buttons button {
+      margin-top: 0;
+    }
+
+    #info {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div id="controls">
+    <h2>Shader Controls</h2>
+
+    <div class="control-group">
+      <label>Dot Size</label>
+      <input type="range" id="pointSize" min="0.5" max="5" step="0.1" value="2">
+      <div class="value-display" id="pointSize-value">2.0</div>
+    </div>
+
+    <div class="control-group">
+      <label>Dot Glow Intensity</label>
+      <input type="range" id="dotGlow" min="0" max="1" step="0.05" value="0.3">
+      <div class="value-display" id="dotGlow-value">0.3</div>
+    </div>
+
+    <div class="control-group">
+      <label>Dot Glow Color</label>
+      <input type="color" id="dotColor" value="#6699cc">
+    </div>
+
+    <div class="control-group">
+      <label>Atmosphere Intensity</label>
+      <input type="range" id="atmoGlow" min="0" max="1" step="0.05" value="0.5">
+      <div class="value-display" id="atmoGlow-value">0.5</div>
+    </div>
+
+    <div class="control-group">
+      <label>Atmosphere Color</label>
+      <input type="color" id="atmoColor" value="#1a2633">
+    </div>
+
+    <div class="control-group">
+      <label>Rotation Speed</label>
+      <input type="range" id="rotationSpeed" min="0" max="2" step="0.1" value="0.5">
+      <div class="value-display" id="rotationSpeed-value">0.5</div>
+    </div>
+
+    <div class="preset-buttons">
+      <button onclick="applyPreset('neon')">Neon</button>
+      <button onclick="applyPreset('minimal')">Minimal</button>
+      <button onclick="applyPreset('warm')">Warm</button>
+      <button onclick="applyPreset('default')">Default</button>
+    </div>
+
+    <button onclick="toggleRotation()">Toggle Rotation</button>
+  </div>
+
+  <div id="info">
+    <strong>Globe Shader Test</strong><br>
+    Dot Particles: <span id="dotCount">0</span><br>
+    FPS: <span id="fps">0</span>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.150.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // ============================================
+    // Shader Code (Inline for Testing)
+    // ============================================
+
+    const dotVertexShader = `
+      attribute vec3 customColor;
+      attribute float customSize;
+
+      uniform float u_pointSize;
+      uniform float u_scale;
+
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+      varying vec3 vColor;
+
+      void main() {
+        vColor = customColor;
+        vNormal = normalize(normalMatrix * normal);
+
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vViewDir = -mvPosition.xyz;
+
+        gl_Position = projectionMatrix * mvPosition;
+        gl_PointSize = u_pointSize * customSize * u_scale;
+      }
+    `;
+
+    const dotFragmentShader = `
+      precision highp float;
+
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+      varying vec3 vColor;
+
+      uniform vec3 u_glowColor;
+      uniform float u_glowIntensity;
+      uniform float u_minOpacity;
+      uniform float u_maxOpacity;
+      uniform float u_glowFalloff;
+
+      void main() {
+        vec2 center = vec2(0.5, 0.5);
+        float dist = distance(gl_PointCoord, center);
+
+        if (dist > 0.5) discard;
+
+        float circleFade = smoothstep(0.5, 0.3, dist);
+        float fresnel = dot(normalize(vNormal), normalize(vViewDir));
+        float edgeFade = smoothstep(u_glowFalloff, 1.0, fresnel);
+        float opacity = mix(u_minOpacity, u_maxOpacity, edgeFade);
+
+        vec3 finalColor = mix(vColor, u_glowColor, u_glowIntensity * (1.0 - edgeFade));
+        float finalOpacity = opacity * circleFade;
+
+        gl_FragColor = vec4(finalColor, finalOpacity);
+      }
+    `;
+
+    const atmosphereVertexShader = `
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+
+      void main() {
+        vNormal = normalize(normalMatrix * normal);
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vViewDir = -mvPosition.xyz;
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `;
+
+    const atmosphereFragmentShader = `
+      precision highp float;
+
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+
+      uniform vec3 u_atmosphereColor;
+      uniform float u_glowIntensity;
+      uniform float u_minOpacity;
+      uniform float u_maxOpacity;
+      uniform float u_power;
+
+      void main() {
+        float fresnel = dot(normalize(vNormal), normalize(vViewDir));
+        fresnel = max(0.0, fresnel);
+        float fresnelPower = pow(fresnel, u_power);
+        float atmosphereFade = 1.0 - fresnelPower;
+
+        float opacity = mix(u_minOpacity, u_maxOpacity, atmosphereFade);
+        vec3 finalColor = u_atmosphereColor * u_glowIntensity;
+
+        gl_FragColor = vec4(finalColor, opacity * u_glowIntensity);
+      }
+    `;
+
+    // ============================================
+    // Scene Setup
+    // ============================================
+
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(
+      45,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    camera.position.z = 300;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    // ============================================
+    // Generate Dots
+    // ============================================
+
+    function generateFibonacciSphere(numPoints, radius) {
+      const positions = [];
+      const normals = [];
+      const colors = [];
+      const sizes = [];
+
+      const phi = Math.PI * (3 - Math.sqrt(5));
+
+      for (let i = 0; i < numPoints; i++) {
+        const y = 1 - (i / (numPoints - 1)) * 2;
+        const radiusAtY = Math.sqrt(1 - y * y);
+        const theta = phi * i;
+
+        const x = Math.cos(theta) * radiusAtY;
+        const z = Math.sin(theta) * radiusAtY;
+
+        positions.push(x * radius, y * radius, z * radius);
+        normals.push(x, y, z);
+        colors.push(1.0, 1.0, 1.0);
+        sizes.push(1.0);
+      }
+
+      return { positions, normals, colors, sizes };
+    }
+
+    const GLOBE_RADIUS = 100;
+    const NUM_DOTS = 15000;
+    const dotData = generateFibonacciSphere(NUM_DOTS, GLOBE_RADIUS);
+
+    document.getElementById('dotCount').textContent = NUM_DOTS;
+
+    // ============================================
+    // Dot Material
+    // ============================================
+
+    const dotGeometry = new THREE.BufferGeometry();
+    dotGeometry.setAttribute('position', new THREE.Float32BufferAttribute(dotData.positions, 3));
+    dotGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(dotData.normals, 3));
+    dotGeometry.setAttribute('customColor', new THREE.Float32BufferAttribute(dotData.colors, 3));
+    dotGeometry.setAttribute('customSize', new THREE.Float32BufferAttribute(dotData.sizes, 1));
+
+    const dotMaterial = new THREE.ShaderMaterial({
+      vertexShader: dotVertexShader,
+      fragmentShader: dotFragmentShader,
+      uniforms: {
+        u_pointSize: { value: 2.0 },
+        u_scale: { value: 1.0 },
+        u_glowColor: { value: [0.4, 0.6, 0.8] },
+        u_glowIntensity: { value: 0.3 },
+        u_minOpacity: { value: 0.2 },
+        u_maxOpacity: { value: 1.0 },
+        u_glowFalloff: { value: 0.0 }
+      },
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+
+    const dotPoints = new THREE.Points(dotGeometry, dotMaterial);
+    scene.add(dotPoints);
+
+    // ============================================
+    // Atmosphere Material
+    // ============================================
+
+    const atmosphereGeometry = new THREE.SphereGeometry(GLOBE_RADIUS * 1.15, 64, 64);
+
+    const atmosphereMaterial = new THREE.ShaderMaterial({
+      vertexShader: atmosphereVertexShader,
+      fragmentShader: atmosphereFragmentShader,
+      uniforms: {
+        u_atmosphereColor: { value: [0.1, 0.15, 0.2] },
+        u_glowIntensity: { value: 0.5 },
+        u_minOpacity: { value: 0.0 },
+        u_maxOpacity: { value: 0.6 },
+        u_power: { value: 2.0 }
+      },
+      transparent: true,
+      side: THREE.BackSide,
+      depthWrite: false
+    });
+
+    const atmosphereMesh = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+    scene.add(atmosphereMesh);
+
+    // ============================================
+    // UI Controls
+    // ============================================
+
+    function hexToRGB(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? [
+        parseInt(result[1], 16) / 255,
+        parseInt(result[2], 16) / 255,
+        parseInt(result[3], 16) / 255
+      ] : [1, 1, 1];
+    }
+
+    // Point size
+    document.getElementById('pointSize').addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      dotMaterial.uniforms.u_pointSize.value = value;
+      document.getElementById('pointSize-value').textContent = value.toFixed(1);
+    });
+
+    // Dot glow
+    document.getElementById('dotGlow').addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      dotMaterial.uniforms.u_glowIntensity.value = value;
+      document.getElementById('dotGlow-value').textContent = value.toFixed(2);
+    });
+
+    // Dot color
+    document.getElementById('dotColor').addEventListener('input', (e) => {
+      dotMaterial.uniforms.u_glowColor.value = hexToRGB(e.target.value);
+    });
+
+    // Atmosphere glow
+    document.getElementById('atmoGlow').addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      atmosphereMaterial.uniforms.u_glowIntensity.value = value;
+      document.getElementById('atmoGlow-value').textContent = value.toFixed(2);
+    });
+
+    // Atmosphere color
+    document.getElementById('atmoColor').addEventListener('input', (e) => {
+      atmosphereMaterial.uniforms.u_atmosphereColor.value = hexToRGB(e.target.value);
+    });
+
+    // Rotation speed
+    let rotationSpeed = 0.001;
+    document.getElementById('rotationSpeed').addEventListener('input', (e) => {
+      rotationSpeed = parseFloat(e.target.value) * 0.002;
+      document.getElementById('rotationSpeed-value').textContent = e.target.value;
+    });
+
+    // ============================================
+    // Presets
+    // ============================================
+
+    window.applyPreset = function(preset) {
+      const presets = {
+        neon: {
+          dotColor: '#00ffcc',
+          dotGlow: 0.9,
+          pointSize: 3.0,
+          atmoColor: '#0080ff',
+          atmoGlow: 0.7
+        },
+        minimal: {
+          dotColor: '#e6e6e6',
+          dotGlow: 0.2,
+          pointSize: 1.5,
+          atmoColor: '#1a1a1a',
+          atmoGlow: 0.3
+        },
+        warm: {
+          dotColor: '#ffb84d',
+          dotGlow: 0.4,
+          pointSize: 2.5,
+          atmoColor: '#4d3319',
+          atmoGlow: 0.5
+        },
+        default: {
+          dotColor: '#6699cc',
+          dotGlow: 0.3,
+          pointSize: 2.0,
+          atmoColor: '#1a2633',
+          atmoGlow: 0.5
+        }
+      };
+
+      const p = presets[preset];
+      document.getElementById('dotColor').value = p.dotColor;
+      document.getElementById('dotGlow').value = p.dotGlow;
+      document.getElementById('pointSize').value = p.pointSize;
+      document.getElementById('atmoColor').value = p.atmoColor;
+      document.getElementById('atmoGlow').value = p.atmoGlow;
+
+      dotMaterial.uniforms.u_glowColor.value = hexToRGB(p.dotColor);
+      dotMaterial.uniforms.u_glowIntensity.value = p.dotGlow;
+      dotMaterial.uniforms.u_pointSize.value = p.pointSize;
+      atmosphereMaterial.uniforms.u_atmosphereColor.value = hexToRGB(p.atmoColor);
+      atmosphereMaterial.uniforms.u_glowIntensity.value = p.atmoGlow;
+
+      document.getElementById('dotGlow-value').textContent = p.dotGlow.toFixed(2);
+      document.getElementById('pointSize-value').textContent = p.pointSize.toFixed(1);
+      document.getElementById('atmoGlow-value').textContent = p.atmoGlow.toFixed(2);
+    };
+
+    let autoRotate = true;
+    window.toggleRotation = function() {
+      autoRotate = !autoRotate;
+    };
+
+    // ============================================
+    // Animation
+    // ============================================
+
+    let lastTime = Date.now();
+    let frames = 0;
+    let fps = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (autoRotate) {
+        dotPoints.rotation.y += rotationSpeed;
+        atmosphereMesh.rotation.y += rotationSpeed;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+
+      // FPS counter
+      frames++;
+      const now = Date.now();
+      if (now - lastTime >= 1000) {
+        fps = frames;
+        frames = 0;
+        lastTime = now;
+        document.getElementById('fps').textContent = fps;
+      }
+    }
+
+    animate();
+
+    // ============================================
+    // Resize Handler
+    // ============================================
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>

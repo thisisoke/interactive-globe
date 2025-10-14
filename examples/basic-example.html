@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Globe - Basic Example</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #1e3a5f 0%, #0a1929 100%);
+      color: #ffffff;
+      overflow: hidden;
+    }
+
+    #globe-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    .controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 20px;
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+      z-index: 10;
+      min-width: 300px;
+    }
+
+    .controls h2 {
+      margin-bottom: 15px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .control-group {
+      margin-bottom: 15px;
+    }
+
+    .control-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      opacity: 0.8;
+    }
+
+    .control-group input[type="color"],
+    .control-group input[type="range"] {
+      width: 100%;
+      height: 35px;
+      border: none;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+    }
+
+    .control-group input[type="color"] {
+      padding: 2px;
+    }
+
+    .control-group button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 5px;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.3s;
+    }
+
+    .control-group button:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .value-display {
+      display: inline-block;
+      float: right;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    .info {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 15px;
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+      font-size: 12px;
+      max-width: 300px;
+    }
+
+    .info p {
+      margin: 5px 0;
+      opacity: 0.9;
+    }
+
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      font-weight: 600;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <div id="globe-container">
+    <div class="loading" id="loading">Loading Globe...</div>
+  </div>
+
+  <div class="controls">
+    <h2>Globe Controls</h2>
+
+    <div class="control-group">
+      <label>
+        Dot Color
+      </label>
+      <input type="color" id="dotColor" value="#FFFFFF">
+    </div>
+
+    <div class="control-group">
+      <label>
+        Active Dot Color
+      </label>
+      <input type="color" id="activeDotColor" value="#FF6B35">
+    </div>
+
+    <div class="control-group">
+      <label>
+        Dot Size <span class="value-display" id="dotSizeValue">1.5</span>
+      </label>
+      <input type="range" id="dotSize" min="0.5" max="5" step="0.1" value="1.5">
+    </div>
+
+    <div class="control-group">
+      <label>
+        Rotation Speed <span class="value-display" id="rotationSpeedValue">1.0</span>
+      </label>
+      <input type="range" id="rotationSpeed" min="0" max="5" step="0.1" value="1.0">
+    </div>
+
+    <div class="control-group">
+      <label>
+        Scale <span class="value-display" id="scaleValue">1.0</span>
+      </label>
+      <input type="range" id="scale" min="0.5" max="2" step="0.1" value="1.0">
+    </div>
+
+    <div class="control-group">
+      <button id="toggleRotation">Stop Rotation</button>
+    </div>
+
+    <div class="control-group">
+      <button id="highlightCities">Highlight Major Cities</button>
+    </div>
+  </div>
+
+  <div class="info">
+    <p><strong>Instructions:</strong></p>
+    <p>• Drag to rotate the globe</p>
+    <p>• Use controls to customize appearance</p>
+    <p>• Click "Highlight Major Cities" to see active dots</p>
+  </div>
+
+  <script type="module">
+    import { Globe } from '../src/Globe.js';
+
+    // Remove loading message
+    function hideLoading() {
+      const loading = document.getElementById('loading');
+      if (loading) loading.style.display = 'none';
+    }
+
+    // Major cities coordinates
+    const majorCities = [
+      { lat: 40.7128, lon: -74.0060 },  // New York
+      { lat: 51.5074, lon: -0.1278 },   // London
+      { lat: 48.8566, lon: 2.3522 },    // Paris
+      { lat: 35.6762, lon: 139.6503 },  // Tokyo
+      { lat: -33.8688, lon: 151.2093 }, // Sydney
+      { lat: 55.7558, lon: 37.6173 },   // Moscow
+      { lat: 19.4326, lon: -99.1332 },  // Mexico City
+      { lat: -23.5505, lon: -46.6333 }, // São Paulo
+      { lat: 1.3521, lon: 103.8198 },   // Singapore
+      { lat: 25.2048, lon: 55.2708 }    // Dubai
+    ];
+
+    // Initialize globe
+    const globe = new Globe({
+      container: document.getElementById('globe-container'),
+      dotColor: '#FFFFFF',
+      dotSize: 1.5,
+      activeDotColor: '#FF6B35',
+      autoRotate: true,
+      rotationSpeed: 1.0,
+      enableMouseDrag: true,
+      enableZoom: false,
+      dotCount: 20000,
+      scale: 1.0,
+      onDotHover: (dot) => {
+        if (dot) {
+          console.log('Hovering over:', dot.lat.toFixed(2), dot.lon.toFixed(2));
+        }
+      },
+      onDotClick: (dot) => {
+        if (dot) {
+          console.log('Clicked:', dot.lat.toFixed(2), dot.lon.toFixed(2));
+        }
+      }
+    });
+
+    // Initialize without texture (shows all dots)
+    // To use texture masking, provide path: await globe.init('/path/to/earth-mask.png');
+    await globe.init();
+    hideLoading();
+
+    // Control handlers
+    let isRotating = true;
+
+    document.getElementById('dotColor').addEventListener('input', (e) => {
+      globe.setDotColor(e.target.value);
+    });
+
+    document.getElementById('activeDotColor').addEventListener('input', (e) => {
+      globe.configure({ activeDotColor: e.target.value });
+    });
+
+    document.getElementById('dotSize').addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById('dotSizeValue').textContent = value.toFixed(1);
+      globe.configure({ dotSize: value });
+    });
+
+    document.getElementById('rotationSpeed').addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById('rotationSpeedValue').textContent = value.toFixed(1);
+      globe.configure({ rotationSpeed: value });
+    });
+
+    document.getElementById('scale').addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById('scaleValue').textContent = value.toFixed(1);
+      globe.setScale(value);
+    });
+
+    document.getElementById('toggleRotation').addEventListener('click', () => {
+      if (isRotating) {
+        globe.stopRotation();
+        document.getElementById('toggleRotation').textContent = 'Start Rotation';
+      } else {
+        globe.startRotation();
+        document.getElementById('toggleRotation').textContent = 'Stop Rotation';
+      }
+      isRotating = !isRotating;
+    });
+
+    document.getElementById('highlightCities').addEventListener('click', () => {
+      globe.setActiveDots(majorCities);
+    });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      globe.dispose();
+    });
+  </script>
+</body>
+</html>

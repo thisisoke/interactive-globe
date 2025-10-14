@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Globe.js Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: monospace;
+      background: #0a1929;
+      color: #ffffff;
+      padding: 20px;
+    }
+
+    #globe-container {
+      width: 800px;
+      height: 600px;
+      margin: 20px auto;
+      border: 2px solid #4B9FBF;
+      border-radius: 10px;
+      position: relative;
+      background: radial-gradient(circle at center, #1e3a5f 0%, #0a1929 100%);
+    }
+
+    .status {
+      max-width: 800px;
+      margin: 0 auto 20px;
+      padding: 15px;
+      background: rgba(75, 156, 191, 0.1);
+      border-radius: 5px;
+      border-left: 4px solid #4B9FBF;
+    }
+
+    .status h2 {
+      margin-bottom: 10px;
+      color: #4B9FBF;
+    }
+
+    .status pre {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      border-radius: 3px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .error {
+      border-left-color: #ff4444;
+    }
+
+    .error h2 {
+      color: #ff4444;
+    }
+
+    .success {
+      border-left-color: #44ff44;
+    }
+
+    .success h2 {
+      color: #44ff44;
+    }
+  </style>
+</head>
+<body>
+  <div class="status" id="status">
+    <h2>Initializing Globe.js Test...</h2>
+    <pre id="log">Loading modules...</pre>
+  </div>
+
+  <div id="globe-container"></div>
+
+  <script type="module">
+    // Helper for logging
+    const log = document.getElementById('log');
+    const status = document.getElementById('status');
+
+    function addLog(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      log.textContent += `\n[${timestamp}] ${message}`;
+      log.scrollTop = log.scrollHeight;
+
+      if (type === 'error') {
+        status.classList.add('error');
+      } else if (type === 'success') {
+        status.classList.add('success');
+      }
+    }
+
+    // Test execution
+    async function runTest() {
+      try {
+        addLog('Importing Globe class...');
+        const { Globe } = await import('../src/Globe.js');
+        addLog('✓ Globe class imported successfully');
+
+        addLog('Getting container element...');
+        const container = document.getElementById('globe-container');
+        if (!container) {
+          throw new Error('Container element not found');
+        }
+        addLog('✓ Container element found');
+
+        addLog('Creating Globe instance...');
+        const globe = new Globe({
+          container: container,
+          dotColor: '#4B9FBF',
+          activeDotColor: '#FF6B35',
+          dotSize: 1.5,
+          autoRotate: true,
+          rotationSpeed: 1.0,
+          dotCount: 10000, // Lower count for faster initialization
+          enableMouseDrag: true,
+          enableZoom: false,
+          onDotHover: (dot) => {
+            if (dot) {
+              addLog(`Hover: ${dot.lat.toFixed(2)}°, ${dot.lon.toFixed(2)}°`);
+            }
+          },
+          onDotClick: (dot) => {
+            if (dot) {
+              addLog(`Click: ${dot.lat.toFixed(2)}°, ${dot.lon.toFixed(2)}°`, 'success');
+            }
+          }
+        });
+        addLog('✓ Globe instance created');
+
+        addLog('Initializing globe (this may take a few seconds)...');
+        await globe.init();
+        addLog('✓ Globe initialized successfully');
+
+        addLog('Globe is now rendering!');
+        addLog('Dot count: ' + globe.dotData.latLongs.length);
+        addLog('Scene objects: ' + globe.scene.children.length);
+
+        // Test setting active dots
+        setTimeout(() => {
+          addLog('Testing setActiveDots()...');
+          globe.setActiveDots([
+            { lat: 40.7128, lon: -74.0060 },  // New York
+            { lat: 51.5074, lon: -0.1278 },   // London
+            { lat: 35.6762, lon: 139.6503 }   // Tokyo
+          ]);
+          addLog('✓ Active dots set (New York, London, Tokyo)');
+        }, 2000);
+
+        // Test configuration changes
+        setTimeout(() => {
+          addLog('Testing configure()...');
+          globe.configure({
+            rotationSpeed: 2.0,
+            dotSize: 2.0
+          });
+          addLog('✓ Configuration updated (speed: 2.0, size: 2.0)');
+        }, 4000);
+
+        // Test rotation control
+        setTimeout(() => {
+          addLog('Testing rotation control...');
+          globe.stopRotation();
+          addLog('✓ Rotation stopped');
+
+          setTimeout(() => {
+            globe.startRotation();
+            addLog('✓ Rotation started');
+          }, 2000);
+        }, 6000);
+
+        addLog('\n=== All tests completed successfully! ===', 'success');
+        status.querySelector('h2').textContent = 'Globe.js Test - SUCCESS ✓';
+
+        // Store globe instance for console access
+        window.globe = globe;
+        addLog('\nGlobe instance available as window.globe');
+        addLog('Try: globe.setRotation(0, 45)');
+
+      } catch (error) {
+        addLog('\n✗ ERROR: ' + error.message, 'error');
+        console.error('Test failed:', error);
+        status.querySelector('h2').textContent = 'Globe.js Test - FAILED ✗';
+      }
+    }
+
+    // Run test
+    runTest();
+  </script>
+</body>
+</html>
