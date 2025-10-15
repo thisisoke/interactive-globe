@@ -71,7 +71,10 @@ const DEFAULT_CONFIG = {
   dotCount: 20000,
   antialias: false,
   scale: 1.0,
-  globeRadius: 100
+  globeRadius: 100,
+  sphereColor: '#1a1a2e',
+  sphereRadius: 99,
+  sphereRotationSpeed: 0.5
 };
 
 /**
@@ -182,6 +185,7 @@ export class Globe {
       this._setupCamera();
       this._setupRenderer();
       this._setupLights();
+      this._setupSphere();
 
       // Phase 3: Load texture for continent masking (if provided)
       if (texturePath || this.config.texturePath) {
@@ -280,6 +284,32 @@ export class Globe {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
     directionalLight.position.set(5, 3, 5);
     this.scene.add(directionalLight);
+  }
+
+  /**
+   * Sets up the opaque sphere surface behind the dots
+   * @private
+   */
+  _setupSphere() {
+    // Create sphere geometry (slightly smaller radius than dots)
+    this.sphereGeometry = new THREE.SphereGeometry(
+      this.config.sphereRadius,
+      64,
+      64
+    );
+
+    // Create material with sphere color
+    const sphereColor = parseColor(this.config.sphereColor);
+    this.sphereMaterial = new THREE.MeshPhongMaterial({
+      color: new THREE.Color(sphereColor.r, sphereColor.g, sphereColor.b),
+      shininess: 30,
+      transparent: false,
+      opacity: 1.0
+    });
+
+    // Create mesh and add to globe group
+    this.sphereMesh = new THREE.Mesh(this.sphereGeometry, this.sphereMaterial);
+    this.globeGroup.add(this.sphereMesh);
   }
 
   /**
@@ -555,6 +585,11 @@ export class Globe {
       this.controls.update();
     }
 
+    // Rotate sphere independently
+    if (this.sphereMesh && this.config.sphereRotationSpeed !== 0) {
+      this.sphereMesh.rotation.y += this.config.sphereRotationSpeed * 0.001;
+    }
+
     // Render scene
     this.renderer.render(this.scene, this.camera);
   }
@@ -577,7 +612,10 @@ export class Globe {
     }
 
     const activeColor = parseColor(this.config.activeDotColor);
+    console.log('Globe: setActiveDots called with', coordinates.length, 'coordinates');
+    console.log('Globe: Active color:', activeColor);
 
+    let successCount = 0;
     coordinates.forEach(coord => {
       if (typeof coord.lat !== 'number' || typeof coord.lon !== 'number') {
         console.warn('Globe: invalid coordinate', coord);
@@ -586,13 +624,17 @@ export class Globe {
 
       // Find nearest dot index
       const index = this._findNearestDotIndex(coord.lat, coord.lon);
+      console.log(`Globe: Coord (${coord.lat}, ${coord.lon}) -> index ${index}`);
 
       if (index !== -1) {
         // Use custom color if provided, otherwise use default active color
         const color = coord.color ? parseColor(coord.color) : activeColor;
         this.updateDotColor(index, color);
+        successCount++;
       }
     });
+
+    console.log(`Globe: Successfully highlighted ${successCount} of ${coordinates.length} cities`);
   }
 
   /**
@@ -654,6 +696,8 @@ export class Globe {
     this.dotData.colors[colorOffset] = threeColor.r;
     this.dotData.colors[colorOffset + 1] = threeColor.g;
     this.dotData.colors[colorOffset + 2] = threeColor.b;
+
+    console.log(`Globe: Updated dot ${index} to color (${threeColor.r.toFixed(2)}, ${threeColor.g.toFixed(2)}, ${threeColor.b.toFixed(2)})`);
 
     // Update geometry attribute
     this.dotsGeometry.attributes.color.needsUpdate = true;
@@ -836,6 +880,70 @@ export class Globe {
   }
 
   /**
+   * Sets the sphere surface color
+   *
+   * @param {string|number} color - Color in any valid CSS format
+   *
+   * @example
+   * globe.setSphereColor('#1a1a2e');
+   * globe.setSphereColor('#ff0000');
+   */
+  setSphereColor(color) {
+    const threeColor = parseColor(color);
+    if (!threeColor) {
+      console.warn('Globe: invalid sphere color', color);
+      return;
+    }
+
+    this.config.sphereColor = color;
+
+    // Update sphere material color
+    if (this.sphereMaterial) {
+      this.sphereMaterial.color.setRGB(threeColor.r, threeColor.g, threeColor.b);
+    }
+  }
+
+  /**
+   * Sets the sphere scale (size)
+   *
+   * @param {number} scale - Scale multiplier for the sphere (0.5 to 1.5)
+   *
+   * @example
+   * globe.setSphereScale(1.2);  // Larger sphere
+   * globe.setSphereScale(0.8);  // Smaller sphere
+   */
+  setSphereScale(scale) {
+    if (typeof scale !== 'number' || scale <= 0) {
+      console.warn('Globe: invalid sphere scale', scale);
+      return;
+    }
+
+    // Update sphere mesh scale
+    if (this.sphereMesh) {
+      this.sphereMesh.scale.set(scale, scale, scale);
+    }
+  }
+
+  /**
+   * Sets the sphere rotation speed
+   *
+   * @param {number} speed - Rotation speed (-5 to 5, negative for reverse)
+   *
+   * @example
+   * globe.setSphereRotationSpeed(0.5);  // Slow rotation
+   * globe.setSphereRotationSpeed(-1.0); // Reverse rotation
+   * globe.setSphereRotationSpeed(0);    // Stop rotation
+   */
+  setSphereRotationSpeed(speed) {
+    if (typeof speed !== 'number') {
+      console.warn('Globe: invalid sphere rotation speed', speed);
+      return;
+    }
+
+    this.config.sphereRotationSpeed = speed;
+  }
+
+  /**
    * Phase 8: Disposes of all resources and cleans up
    *
    * @example
@@ -858,10 +966,16 @@ export class Globe {
     if (this.dotsGeometry) {
       this.dotsGeometry.dispose();
     }
+    if (this.sphereGeometry) {
+      this.sphereGeometry.dispose();
+    }
 
     // Dispose materials
     if (this.dotsMaterial) {
       this.dotsMaterial.dispose();
+    }
+    if (this.sphereMaterial) {
+      this.sphereMaterial.dispose();
     }
 
     // Dispose texture data

@@ -131,6 +131,22 @@
 
     <div class="control-group">
       <label>
+        Sphere Color
+      </label>
+      <input type="color" id="sphereColor" value="#1a1a2e">
+      <input type="text" id="sphereColorHex" placeholder="#1a1a2e" style="width: 100%; margin-top: 5px; padding: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; color: white; font-size: 12px;">
+    </div>
+
+    <div class="control-group">
+      <label>
+        Canvas Background
+      </label>
+      <input type="color" id="bgColor" value="#0a1929">
+      <input type="text" id="bgColorHex" placeholder="#0a1929" style="width: 100%; margin-top: 5px; padding: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; color: white; font-size: 12px;">
+    </div>
+
+    <div class="control-group">
+      <label>
         Dot Color
       </label>
       <input type="color" id="dotColor" value="#FFFFFF">
@@ -152,16 +168,30 @@
 
     <div class="control-group">
       <label>
-        Rotation Speed <span class="value-display" id="rotationSpeedValue">1.0</span>
+        Globe Rotation Speed <span class="value-display" id="rotationSpeedValue">1.0</span>
       </label>
       <input type="range" id="rotationSpeed" min="0" max="5" step="0.1" value="1.0">
     </div>
 
     <div class="control-group">
       <label>
-        Scale <span class="value-display" id="scaleValue">1.0</span>
+        Sphere Rotation Speed <span class="value-display" id="sphereRotationSpeedValue">0.5</span>
+      </label>
+      <input type="range" id="sphereRotationSpeed" min="-5" max="5" step="0.1" value="0.5">
+    </div>
+
+    <div class="control-group">
+      <label>
+        Globe Scale <span class="value-display" id="scaleValue">1.0</span>
       </label>
       <input type="range" id="scale" min="0.5" max="2" step="0.1" value="1.0">
+    </div>
+
+    <div class="control-group">
+      <label>
+        Sphere Scale <span class="value-display" id="sphereScaleValue">1.0</span>
+      </label>
+      <input type="range" id="sphereScale" min="0.5" max="1.5" step="0.01" value="1.0">
     </div>
 
     <div class="control-group">
@@ -206,9 +236,12 @@
     // Initialize globe
     const globe = new Globe({
       container: document.getElementById('globe-container'),
+      sphereColor: '#1a1a2e',        // Opaque sphere (no see-through!)
+      sphereRotationSpeed: 0.5,      // Sphere rotates independently
+      backgroundColor: '#0a1929',     // Canvas background
       dotColor: '#FFFFFF',
       dotSize: 1.5,
-      activeDotColor: '#FF6B35',
+      activeDotColor: '#00FF00',      // Bright green for visibility
       autoRotate: true,
       rotationSpeed: 1.0,
       enableMouseDrag: true,
@@ -235,6 +268,36 @@
     // Control handlers
     let isRotating = true;
 
+    // Sphere color controls
+    document.getElementById('sphereColor').addEventListener('input', (e) => {
+      const color = e.target.value;
+      document.getElementById('sphereColorHex').value = color;
+      globe.setSphereColor(color);
+    });
+
+    document.getElementById('sphereColorHex').addEventListener('change', (e) => {
+      const color = e.target.value;
+      if (/^#[0-9A-F]{6}$/i.test(color)) {
+        document.getElementById('sphereColor').value = color;
+        globe.setSphereColor(color);
+      }
+    });
+
+    // Background color controls
+    document.getElementById('bgColor').addEventListener('input', (e) => {
+      const color = e.target.value;
+      document.getElementById('bgColorHex').value = color;
+      globe.setBackgroundColor(color);
+    });
+
+    document.getElementById('bgColorHex').addEventListener('change', (e) => {
+      const color = e.target.value;
+      if (/^#[0-9A-F]{6}$/i.test(color)) {
+        document.getElementById('bgColor').value = color;
+        globe.setBackgroundColor(color);
+      }
+    });
+
     document.getElementById('dotColor').addEventListener('input', (e) => {
       globe.setDotColor(e.target.value);
     });
@@ -255,10 +318,22 @@
       globe.configure({ rotationSpeed: value });
     });
 
+    document.getElementById('sphereRotationSpeed').addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById('sphereRotationSpeedValue').textContent = value.toFixed(1);
+      globe.setSphereRotationSpeed(value);
+    });
+
     document.getElementById('scale').addEventListener('input', (e) => {
       const value = parseFloat(e.target.value);
       document.getElementById('scaleValue').textContent = value.toFixed(1);
       globe.setScale(value);
+    });
+
+    document.getElementById('sphereScale').addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById('sphereScaleValue').textContent = value.toFixed(2);
+      globe.setSphereScale(value);
     });
 
     document.getElementById('toggleRotation').addEventListener('click', () => {
@@ -273,7 +348,18 @@
     });
 
     document.getElementById('highlightCities').addEventListener('click', () => {
+      console.log('Highlighting cities:', majorCities);
+      console.log('Current dot color:', globe.config.dotColor);
+      console.log('Active dot color:', globe.config.activeDotColor);
+
+      // First, reset all dots to default color
+      for (let i = 0; i < globe.dotData.latLongs.length; i++) {
+        globe.updateDotColor(i, '#808080'); // Gray for non-active dots
+      }
+
+      // Then highlight cities
       globe.setActiveDots(majorCities);
+      console.log('Active dots set');
     });
 
     // Cleanup on page unload
